@@ -1,8 +1,9 @@
 import OBR from "@owlbear-rodeo/sdk";
-import { PATROL_CONTEXT_MENU_ID } from "./constants";
+import { ID, PATROL_CONTEXT_MENU_ID } from "./constants";
+
+const POPOVER_ID = `${ID}/patrol-menu`;
 
 // Adds a "Patrol" entry to the context menu of selected tokens.
-// The click handler will be wired up to assign a patrol path separately.
 export function registerContextMenu() {
   OBR.contextMenu.create({
     id: PATROL_CONTEXT_MENU_ID,
@@ -16,8 +17,22 @@ export function registerContextMenu() {
         },
       },
     ],
-    onClick() {
-      // TODO: open patrol path assignment UI
+    onClick(_, elementId) {
+      OBR.popover.open({
+        id: POPOVER_ID,
+        url: "/patrol-menu.html",
+        width: 280,
+        height: 260,
+        anchorElementId: elementId,
+        anchorOrigin: {
+          horizontal: "CENTER",
+          vertical: "BOTTOM",
+        },
+        transformOrigin: {
+          horizontal: "CENTER",
+          vertical: "TOP",
+        },
+      });
     },
   });
 }

@@ -1,5 +1,6 @@
 import OBR from "@owlbear-rodeo/sdk";
 import { DRAW_MODE_ID, TOOL_ID } from "./constants";
+import { drawPathHandlers } from "./drawPath";
 
 // Registers the Sentry tool in the toolbar.
 export function registerTool() {
@@ -16,7 +17,7 @@ export function registerTool() {
 }
 
 // Registers the mode used to draw a patrol path on the scene.
-// Path drawing/point collection logic will be implemented separately.
+// Click and drag to draw freehand, release to finish, Escape to cancel.
 export function registerDrawMode() {
   OBR.tool.createMode({
     id: DRAW_MODE_ID,
@@ -34,5 +35,6 @@ export function registerDrawMode() {
         cursor: "crosshair",
       },
     ],
+    ...drawPathHandlers,
   });
 }

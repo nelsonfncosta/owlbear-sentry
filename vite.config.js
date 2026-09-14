@@ -1,5 +1,8 @@
 import react from "@vitejs/plugin-react";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
+
+const dirname = fileURLToPath(new URL(".", import.meta.url));
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -8,6 +11,15 @@ export default defineConfig({
   server: {
     cors: {
       origin: "https://www.owlbear.rodeo",
+    },
+  },
+  build: {
+    rollupOptions: {
+      // Each extension popover/embed is served from its own html entry point.
+      input: {
+        main: `${dirname}index.html`,
+        patrolMenu: `${dirname}patrol-menu.html`,
+      },
     },
   },
 });
