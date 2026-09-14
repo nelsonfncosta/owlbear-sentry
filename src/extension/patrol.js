@@ -2,19 +2,21 @@ import OBR from "@owlbear-rodeo/sdk";
 import { PATROL_METADATA_KEY } from "./constants";
 import { isPatrolPath } from "./paths";
 
-// Interactions are local-first; network sync is throttled internally by the SDK regardless
-// of how often we call update(), so a short local interval gives smooth motion without
-// adding network traffic. (requestAnimationFrame won't work here - this runs on the hidden
-// background page, which never paints, so rAF callbacks are throttled/suspended by the browser.)
-const TICK_MS = 33;
+// Local simulation runs fast for accurate progress tracking. The authoritative network write is
+// throttled below that to stay under the room's rate limit - since all patrolling tokens are
+// batched into a single updateItems call per write, this rate doesn't scale with token count.
+// An OBR.interaction is layered on top purely to smooth the visuals between those writes; if its
+// periodic restart ever hitches, the authoritative writes underneath still keep tokens moving.
+const SIMULATE_MS = 50;
+const WRITE_MS = 200;
 
-// Interactions expire after 30s; restart a bit before that to keep patrols going.
+// Interactions expire after 30s; restart a bit before that to keep them going.
 const INTERACTION_LIFESPAN_MS = 20000;
 
 // Per-token progress along its assigned path: distance travelled and direction (+1/-1).
 const progress = new Map();
 
-// Per-token live interaction used to move it without repeatedly calling updateItems.
+// Per-token live interaction used to smooth movement between the authoritative writes.
 const interactions = new Map();
 
 // Token IDs currently (re)starting an interaction, to avoid piling up duplicate requests.
@@ -47,14 +49,14 @@ function pointAtDistance(points, lengths, dist) {
   return points[points.length - 1];
 }
 
-// Advances one token's progress along its path and returns its new position.
+// Advances one token's progress along its path (mutates the shared progress map).
 function advance(tokenId, path, speed, dtSeconds) {
   const points = path.points;
-  if (points.length < 2) return null;
+  if (points.length < 2) return;
 
   const lengths = segmentLengths(points);
   const total = lengths.reduce((sum, length) => sum + length, 0);
-  if (total <= 0) return null;
+  if (total <= 0) return;
 
   const state = progress.get(tokenId) ?? { distance: 0, direction: 1 };
   let dist = state.distance + speed * dtSeconds * state.direction;
@@ -73,7 +75,14 @@ function advance(tokenId, path, speed, dtSeconds) {
 
   state.distance = dist;
   progress.set(tokenId, state);
-  return pointAtDistance(points, lengths, dist);
+}
+
+// Computes a token's current position from its tracked progress.
+function currentPosition(tokenId, path) {
+  const state = progress.get(tokenId);
+  if (!state) return null;
+  const lengths = segmentLengths(path.points);
+  return pointAtDistance(path.points, lengths, state.distance);
 }
 
 function stopInteraction(tokenId) {
@@ -83,28 +92,27 @@ function stopInteraction(tokenId) {
   entry.stop();
 }
 
-// (Re)starts the interaction used to move a token, overlapping it with any previous one so
-// there's no gap without an active stream, and seeding it from our own last known position
-// instead of re-fetching (which can be a step behind, causing a visible jump on restart).
-async function refreshInteraction(tokenId) {
+// Starts (or restarts) the interaction used to smooth a token's movement, always seeded from
+// our own local simulation - the single source of truth - rather than any interaction-tracked
+// state. Runs in the background (not awaited by the simulate loop); the authoritative writes
+// keep the token moving correctly regardless of how long this takes.
+async function ensureInteraction(tokenId, path) {
   if (refreshing.has(tokenId)) return;
   refreshing.add(tokenId);
   try {
     const previous = interactions.get(tokenId);
-    let baseItem = previous?.item;
-    if (!baseItem) {
-      [baseItem] = await OBR.scene.items.getItems([tokenId]);
-    }
-    if (!baseItem) return;
+    const [item] = await OBR.scene.items.getItems([tokenId]);
+    if (!item) return;
 
-    const [update, stop] = await OBR.interaction.startItemInteraction(baseItem);
-    interactions.set(tokenId, {
-      update,
-      stop,
-      startedAt: performance.now(),
-      item: baseItem,
+    const position = currentPosition(tokenId, path) ?? item.position;
+    const [update, stop] = await OBR.interaction.startItemInteraction({
+      ...item,
+      position,
     });
+    interactions.set(tokenId, { update, stop, startedAt: performance.now() });
     previous?.stop();
+  } catch (error) {
+    console.error("Sentry patrol interaction (re)start failed", error);
   } finally {
     refreshing.delete(tokenId);
   }
@@ -136,59 +144,80 @@ function refreshTargets(items) {
   patrolTokens = nextTokens;
 }
 
-let intervalId = null;
-let lastTick = 0;
-let tickInFlight = false;
+let simulateIntervalId = null;
+let writeIntervalId = null;
+let lastSimulate = 0;
+let writing = false;
 
-async function tick() {
-  // setInterval doesn't wait for a previous async tick to finish; skip if one is still running
-  // to avoid piling up duplicate interaction restarts against the realtime connection.
-  if (tickInFlight) return;
-  tickInFlight = true;
+function simulate() {
+  const now = performance.now();
+  const dtSeconds = lastSimulate ? (now - lastSimulate) / 1000 : 0;
+  lastSimulate = now;
+
+  for (const [tokenId, patrol] of patrolTokens) {
+    const path = pathsById.get(patrol?.pathId);
+    const speed = typeof patrol?.speed === "number" ? patrol.speed : 0;
+    if (!path || speed <= 0) continue;
+    advance(tokenId, path, speed, dtSeconds);
+
+    const position = currentPosition(tokenId, path);
+    if (!position) continue;
+
+    const entry = interactions.get(tokenId);
+    if (entry) {
+      entry.update((draft) => {
+        draft.position = position;
+      });
+      if (now - entry.startedAt > INTERACTION_LIFESPAN_MS) {
+        ensureInteraction(tokenId, path);
+      }
+    } else {
+      ensureInteraction(tokenId, path);
+    }
+  }
+}
+
+async function writePositions() {
+  // A previous write may still be in flight; skip this round rather than overlapping it.
+  if (writing) return;
+  writing = true;
   try {
-    const now = performance.now();
-    const dtSeconds = lastTick ? (now - lastTick) / 1000 : 0;
-    lastTick = now;
-
+    const updates = new Map();
     for (const [tokenId, patrol] of patrolTokens) {
       const path = pathsById.get(patrol?.pathId);
-      const speed = typeof patrol?.speed === "number" ? patrol.speed : 0;
-      if (!path || speed <= 0) continue;
-
-      const position = advance(tokenId, path, speed, dtSeconds);
-      if (!position) continue;
-
-      let entry = interactions.get(tokenId);
-      if (!entry || now - entry.startedAt > INTERACTION_LIFESPAN_MS) {
-        await refreshInteraction(tokenId);
-        entry = interactions.get(tokenId);
-      }
-      if (entry) {
-        entry.update((draft) => {
-          draft.position = position;
-        });
-        // Keep our local copy fresh so the next restart seeds from the right spot.
-        entry.item = { ...entry.item, position };
-      }
+      if (!path) continue;
+      const position = currentPosition(tokenId, path);
+      if (position) updates.set(tokenId, position);
     }
+    if (updates.size === 0) return;
+
+    await OBR.scene.items.updateItems([...updates.keys()], (items) => {
+      for (const item of items) {
+        item.position = updates.get(item.id);
+      }
+    });
+  } catch (error) {
+    console.error("Sentry patrol write failed", error);
   } finally {
-    tickInFlight = false;
+    writing = false;
   }
 }
 
 function startLoop() {
-  if (intervalId !== null) return;
-  lastTick = 0;
-  tickInFlight = false;
-  intervalId = window.setInterval(() => {
-    tick().catch((error) => console.error("Sentry patrol tick failed", error));
-  }, TICK_MS);
+  if (simulateIntervalId !== null) return;
+  lastSimulate = 0;
+  simulateIntervalId = window.setInterval(simulate, SIMULATE_MS);
+  writeIntervalId = window.setInterval(() => {
+    writePositions();
+  }, WRITE_MS);
 }
 
 function stopLoop() {
-  if (intervalId === null) return;
-  window.clearInterval(intervalId);
-  intervalId = null;
+  if (simulateIntervalId === null) return;
+  window.clearInterval(simulateIntervalId);
+  window.clearInterval(writeIntervalId);
+  simulateIntervalId = null;
+  writeIntervalId = null;
   progress.clear();
   for (const tokenId of interactions.keys()) {
     stopInteraction(tokenId);
