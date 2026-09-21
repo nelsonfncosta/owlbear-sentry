@@ -1,5 +1,5 @@
 import OBR, { buildCurve } from "@owlbear-rodeo/sdk";
-import { PATH_METADATA_KEY } from "./constants";
+import { PATH_METADATA_KEY, PATROL_METADATA_KEY } from "./constants";
 
 const PATH_STYLE = {
   strokeColor: "#f8b400",
@@ -61,6 +61,18 @@ function cancelDrawing() {
 }
 
 export const drawPathHandlers = {
+  onToolDown(_, event) {
+    const target = event.target;
+    if (target) {
+      OBR.scene.items.updateItems([target.id], (items) => {
+        for (const item of items) {
+          const patrol = item.metadata[PATROL_METADATA_KEY];
+          if (patrol)
+            item.metadata[PATROL_METADATA_KEY] = { ...patrol, paused: true };
+        }
+      });
+    }
+  },
   async onToolDragStart(_, event) {
     drawing = { points: [event.pointerPosition], interaction: null };
     const interaction = await OBR.interaction.startItemInteraction(

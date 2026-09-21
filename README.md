@@ -10,7 +10,7 @@ loop if the path is closed.
   `Sentry` toolbar tool lets you freehand-draw a path. It's saved as a `CURVE` scene
   item tagged with metadata so it can be found later, and auto-closes into a loop if you
   release near where you started.
-- **Assigning a patrol** ([src/PatrolMenu.jsx](./src/PatrolMenu.jsx)): right-click a
+- **Assigning a patrol** ([src/PatrolControl.jsx](./src/PatrolControl.jsx)): right-click a
   token, choose `Patrol`, and a popover lets you pick one of the drawn paths and a speed.
   This is stored in the token's own metadata (`pathId`, `speed`).
 - **Moving the token** ([src/extension/patrol.js](./src/extension/patrol.js)): see below.

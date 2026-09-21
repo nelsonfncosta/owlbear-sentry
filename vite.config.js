@@ -18,7 +18,7 @@ export default defineConfig({
       // Each extension popover/embed is served from its own html entry point.
       input: {
         main: `${dirname}index.html`,
-        patrolMenu: `${dirname}patrol-menu.html`,
+        patrolControl: `${dirname}patrol-control.html`,
       },
     },
   },

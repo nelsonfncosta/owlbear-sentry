@@ -171,6 +171,10 @@ function simulate() {
     const path = pathsById.get(patrol?.pathId);
     const speed = typeof patrol?.speed === "number" ? patrol.speed : 0;
     if (!path || speed <= 0) continue;
+    if (patrol.paused) {
+      stopInteraction(tokenId);
+      continue;
+    }
     advance(tokenId, path, speed, dtSeconds);
 
     const position = currentPosition(tokenId, path);
@@ -198,7 +202,7 @@ async function writePositions() {
     const updates = new Map();
     for (const [tokenId, patrol] of patrolTokens) {
       const path = pathsById.get(patrol?.pathId);
-      if (!path) continue;
+      if (!path || patrol.paused) continue;
       const position = currentPosition(tokenId, path);
       if (position) updates.set(tokenId, position);
     }
