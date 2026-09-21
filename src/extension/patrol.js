@@ -15,8 +15,13 @@ const WRITE_MS = 200;
 // 30s, the SDK force-closes the interaction ("Interaction lasted too long") before our swap lands.
 const INTERACTION_LIFESPAN_MS = 12000;
 
+// Owlbear's screen coordinates treat downward travel as 90deg; a down-facing token's base
+// rotation is 0deg. Smooth toward the full travel heading instead of only leaning toward it.
+const ROTATION_SMOOTHING = 0.12;
+
 // Per-token progress along its assigned path: distance travelled and direction (+1/-1).
 const progress = new Map();
+const rotationState = new Map();
 
 // Per-token live interaction used to smooth movement between the authoritative writes.
 const interactions = new Map();
@@ -36,7 +41,7 @@ function segmentLengths(points) {
   return lengths;
 }
 
-// Walk `dist` units along a polyline, returning the resulting point.
+// Walk `dist` units along a polyline, returning the point and its local segment direction.
 function pointAtDistance(points, lengths, dist) {
   let remaining = dist;
   for (let i = 0; i < lengths.length; i++) {
@@ -44,11 +49,24 @@ function pointAtDistance(points, lengths, dist) {
       const t = lengths[i] === 0 ? 0 : Math.min(1, remaining / lengths[i]);
       const a = points[i];
       const b = points[i + 1];
-      return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+      return {
+        x: a.x + (b.x - a.x) * t,
+        y: a.y + (b.y - a.y) * t,
+        direction: Math.atan2(b.y - a.y, b.x - a.x),
+      };
     }
     remaining -= lengths[i];
   }
-  return points[points.length - 1];
+  const previous = points[points.length - 2];
+  const last = points[points.length - 1];
+  return {
+    ...last,
+    direction: Math.atan2(last.y - previous.y, last.x - previous.x),
+  };
+}
+
+function shortestAngleDelta(from, to) {
+  return ((to - from + 540) % 360) - 180;
 }
 
 // Advances one token's progress along its path (mutates the shared progress map).
@@ -85,9 +103,20 @@ function currentPosition(tokenId, path) {
   if (!state) return null;
   const lengths = segmentLengths(path.points);
   const point = pointAtDistance(path.points, lengths, state.distance);
+  const direction = state.direction < 0 ? point.direction + Math.PI : point.direction;
+  const heading = (direction * 180) / Math.PI;
+  const rotation = rotationState.get(tokenId);
+
+  if (rotation) {
+    // With a down-facing base: down = 0deg, right = -90deg, left = 90deg.
+    const desired = rotation.base + heading - 90;
+    rotation.current += shortestAngleDelta(rotation.current, desired) * ROTATION_SMOOTHING;
+  }
+
   return {
     x: point.x + path.position.x,
     y: point.y + path.position.y,
+    rotation: rotation?.current,
   };
 }
 
@@ -110,10 +139,18 @@ async function ensureInteraction(tokenId, path) {
     const [item] = await OBR.scene.items.getItems([tokenId]);
     if (!item) return;
 
-    const position = currentPosition(tokenId, path) ?? item.position;
+    if (!rotationState.has(tokenId)) {
+      rotationState.set(tokenId, { base: item.rotation, current: item.rotation });
+    }
+
+    const movement = currentPosition(tokenId, path);
+    const position = movement
+      ? { x: movement.x, y: movement.y }
+      : item.position;
     const [update, stop] = await OBR.interaction.startItemInteraction({
       ...item,
       position,
+      rotation: movement?.rotation ?? item.rotation,
     });
     interactions.set(tokenId, { update, stop, startedAt: performance.now() });
     previous?.stop();
@@ -141,6 +178,7 @@ function refreshTargets(items) {
       const previousPatrol = patrolTokens.get(item.id);
       if (previousPatrol?.pathId !== patrol.pathId) {
         progress.delete(item.id);
+        rotationState.delete(item.id);
         stopInteraction(item.id);
       }
       nextTokens.set(item.id, patrol);
@@ -151,6 +189,7 @@ function refreshTargets(items) {
   for (const tokenId of patrolTokens.keys()) {
     if (!nextTokens.has(tokenId)) {
       progress.delete(tokenId);
+      rotationState.delete(tokenId);
       stopInteraction(tokenId);
     }
   }
@@ -184,6 +223,7 @@ function simulate() {
     if (entry) {
       entry.update((draft) => {
         draft.position = position;
+        if (position.rotation !== undefined) draft.rotation = position.rotation;
       });
       if (now - entry.startedAt > INTERACTION_LIFESPAN_MS) {
         ensureInteraction(tokenId, path);
@@ -210,7 +250,10 @@ async function writePositions() {
 
     await OBR.scene.items.updateItems([...updates.keys()], (items) => {
       for (const item of items) {
-        item.position = updates.get(item.id);
+        const movement = updates.get(item.id);
+        item.position = { x: movement.x, y: movement.y };
+        const rotation = movement.rotation;
+        if (rotation !== undefined) item.rotation = rotation;
       }
     });
   } catch (error) {
@@ -236,6 +279,7 @@ function stopLoop() {
   simulateIntervalId = null;
   writeIntervalId = null;
   progress.clear();
+  rotationState.clear();
   for (const tokenId of interactions.keys()) {
     stopInteraction(tokenId);
   }
