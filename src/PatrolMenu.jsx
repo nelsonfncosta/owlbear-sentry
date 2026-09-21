@@ -19,7 +19,7 @@ export default function PatrolMenu() {
   useEffect(() => {
     if (!ready) return;
 
-    async function load() {
+    async function loadInitialState() {
       const selection = (await OBR.player.getSelection()) ?? [];
       setTokenIds(selection);
       setPaths(await OBR.scene.items.getItems(isPatrolPath));
@@ -34,8 +34,12 @@ export default function PatrolMenu() {
       }
     }
 
-    load();
-    return OBR.scene.items.onChange(load);
+    loadInitialState();
+    return OBR.scene.items.onChange((items) => {
+      // Token movement also triggers this callback; only refresh the available path list so it
+      // can't overwrite a path or speed the user is currently editing.
+      setPaths(items.filter(isPatrolPath));
+    });
   }, [ready]);
 
   async function handleAssign() {

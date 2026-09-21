@@ -10,8 +10,10 @@ import { isPatrolPath } from "./paths";
 const SIMULATE_MS = 50;
 const WRITE_MS = 200;
 
-// Interactions expire after 30s; restart a bit before that to keep them going.
-const INTERACTION_LIFESPAN_MS = 20000;
+// Interactions expire after 30s; restart well before that so the restart round trip (getItems +
+// startItemInteraction) has time to finish even under network delay - if it doesn't finish before
+// 30s, the SDK force-closes the interaction ("Interaction lasted too long") before our swap lands.
+const INTERACTION_LIFESPAN_MS = 12000;
 
 // Per-token progress along its assigned path: distance travelled and direction (+1/-1).
 const progress = new Map();
@@ -131,7 +133,14 @@ function refreshTargets(items) {
       continue;
     }
     const patrol = item.metadata[PATROL_METADATA_KEY];
-    if (patrol) nextTokens.set(item.id, patrol);
+    if (patrol) {
+      const previousPatrol = patrolTokens.get(item.id);
+      if (previousPatrol?.pathId !== patrol.pathId) {
+        progress.delete(item.id);
+        stopInteraction(item.id);
+      }
+      nextTokens.set(item.id, patrol);
+    }
   }
   pathsById = nextPaths;
 
