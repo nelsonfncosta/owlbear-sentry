@@ -24,6 +24,7 @@ function buildPatrolCurve(points, closed = false) {
     .closed(closed)
     .layer("DRAWING")
     .name("Patrol Path")
+    .visible(false)
     .metadata({ [PATH_METADATA_KEY]: true })
     .build();
 }
