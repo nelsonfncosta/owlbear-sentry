@@ -84,7 +84,11 @@ function currentPosition(tokenId, path) {
   const state = progress.get(tokenId);
   if (!state) return null;
   const lengths = segmentLengths(path.points);
-  return pointAtDistance(path.points, lengths, state.distance);
+  const point = pointAtDistance(path.points, lengths, state.distance);
+  return {
+    x: point.x + path.position.x,
+    y: point.y + path.position.y,
+  };
 }
 
 function stopInteraction(tokenId) {
