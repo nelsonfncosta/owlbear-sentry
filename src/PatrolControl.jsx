@@ -103,7 +103,7 @@ export default function PatrolControl() {
           </option>
           {paths.map((path, index) => (
             <option key={path.id} value={path.id}>
-              Path {index + 1}{" "}
+              {path.name || `Path ${index + 1}`}{" "}
               {path.style.closed ? "(loop)" : "(back and forth)"}
             </option>
           ))}
