@@ -4,6 +4,25 @@ An [Owlbear Rodeo](https://www.owlbear.rodeo/) extension that lets a GM draw a p
 path on the map and assign a token to automatically walk it - back and forth, or in a
 loop if the path is closed.
 
+## Development
+
+```bash
+npm install
+npm run dev
+```
+
+## Deploy to GitHub Pages
+
+Pushes to `main` deploy through
+[.github/workflows/deploy-pages.yml](.github/workflows/deploy-pages.yml).
+
+1. In the GitHub repository, open `Settings -> Pages`.
+2. Under Build and deployment, select `GitHub Actions`.
+3. Push to `main`, or run the workflow manually.
+4. Install the resulting Owlbear Rodeo manifest URL:
+
+`https://<your-github-username>.github.io/owlbear-sentry/manifest.json`
+
 ## How it works
 
 - **Drawing a path** ([src/extension/drawPath.js](./src/extension/drawPath.js)): the
