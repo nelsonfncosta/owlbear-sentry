@@ -1,15 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import OBR from "@owlbear-rodeo/sdk";
+import { focusViewportOnItems } from "./viewportUtils";
 import { PATROL_METADATA_KEY } from "./extension/constants";
 import { isPatrolPath } from "./extension/paths";
 import "./PatrolDashboard.css";
+
+const centerOnItem = async (item) => {
+  try {
+    await focusViewportOnItems([item.id]);
+  } catch (error) {
+    console.error("Failed to center viewport on item", error);
+  }
+};
 
 function mapPatrols(items) {
   const paths = new Map(
     items.filter(isPatrolPath).map((path) => [path.id, path]),
   );
 
-  return items.flatMap((item) => {
+  const assignedPatrols = items.flatMap((item) => {
     const patrol = item.metadata[PATROL_METADATA_KEY];
     if (!patrol) return [];
 
@@ -23,6 +32,17 @@ function mapPatrols(items) {
       },
     ];
   });
+
+  const unassignedPatrols = items.filter(isPatrolPath).filter((path) => {
+    return !items.some((item) => {
+      const patrol = item.metadata[PATROL_METADATA_KEY];
+      return patrol?.pathId === path.id;
+    });
+  });
+
+  console.log("Unassigned patrols:", unassignedPatrols);
+
+  return [assignedPatrols, unassignedPatrols];
 }
 
 export default function PatrolDashboard() {
@@ -30,6 +50,7 @@ export default function PatrolDashboard() {
   const [ready, setReady] = useState(false);
   const [hasScene, setHasScene] = useState(true);
   const [patrols, setPatrols] = useState([]);
+  const [unassignedPatrols, setUnassignedPatrols] = useState([]);
 
   useEffect(() => {
     let unsubscribeItems = () => {};
@@ -40,7 +61,9 @@ export default function PatrolDashboard() {
         const items = await OBR.scene.items.getItems();
 
         setHasScene(true);
-        setPatrols(mapPatrols(items));
+        const [assignedPatrols, unassignedPatrols] = mapPatrols(items);
+        setPatrols(assignedPatrols);
+        setUnassignedPatrols(unassignedPatrols);
       } catch {
         setHasScene(false);
         setPatrols([]);
@@ -52,7 +75,9 @@ export default function PatrolDashboard() {
       refresh();
       unsubscribeItems = OBR.scene.items.onChange((items) => {
         setHasScene(true);
-        setPatrols(mapPatrols(items));
+        const [assignedPatrols, unassignedPatrols] = mapPatrols(items);
+        setPatrols(assignedPatrols);
+        setUnassignedPatrols(unassignedPatrols);
       });
       unsubscribeReady = OBR.scene.onReadyChange(refresh);
     });
@@ -107,7 +132,10 @@ export default function PatrolDashboard() {
         <ul>
           {patrols.map((patrol) => (
             <li key={patrol.id}>
-              <div className="patrol-dashboard__details">
+              <div
+                className="patrol-dashboard__details"
+                onClick={() => centerOnItem(patrol)}
+              >
                 <strong>{patrol.name}</strong>
                 <span>
                   {patrol.pathName} · Speed {patrol.speed}
@@ -126,6 +154,29 @@ export default function PatrolDashboard() {
             </li>
           ))}
         </ul>
+      )}
+      {unassignedPatrols.length > 0 && (
+        <section>
+          <header>
+            <strong>Unassigned Paths</strong>
+            <span>{unassignedPatrols.length}</span>
+          </header>
+          <ul>
+            {unassignedPatrols.map((patrol) => (
+              <li key={patrol.id}>
+                <div
+                  className="patrol-dashboard__details"
+                  onClick={() => centerOnItem(patrol)}
+                >
+                  <strong>{patrol.name}</strong>
+                  <span>
+                    {patrol.style.closed ? "(loop)" : "(back and forth)"}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </main>
   );
