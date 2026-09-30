@@ -5,6 +5,9 @@ import { PATROL_METADATA_KEY } from "./extension/constants";
 import { isPatrolPath } from "./extension/paths";
 import "./PatrolDashboard.css";
 
+const bugIconUrl = `${import.meta.env.BASE_URL}bug.svg`;
+const coffeeIconUrl = `${import.meta.env.BASE_URL}coffee.svg`;
+
 const centerOnItem = async (item) => {
   try {
     await focusViewportOnItems([item.id]);
@@ -122,8 +125,31 @@ export default function PatrolDashboard() {
   return (
     <main ref={panelRef} className="patrol-dashboard">
       <header>
-        <strong>Active Patrols</strong>
-        <span>{patrols.length}</span>
+        <span>
+          <strong>Active Patrols</strong> &nbsp;&nbsp;{patrols.length}
+        </span>
+        <div className="header-actions">
+          <a
+            href="https://ko-fi.com/nelsoncosta"
+            target="_blank"
+            rel="noreferrer"
+            className="action-link"
+            title="Coffee delivery"
+            aria-label="Support Multi Timer on Ko-fi"
+          >
+            <img src={coffeeIconUrl} alt="" aria-hidden="true" />
+          </a>
+          <a
+            href="https://github.com/nelsonfncosta/owlbear-sentry/issues"
+            target="_blank"
+            rel="noreferrer"
+            className="action-link"
+            title="Report a bug"
+            aria-label="Report a bug"
+          >
+            <img src={bugIconUrl} alt="" aria-hidden="true" />
+          </a>
+        </div>
       </header>
       {!ready && <p>Connecting to Owlbear...</p>}
       {ready && !hasScene && <p>Open a scene to view patrols.</p>}
@@ -158,8 +184,10 @@ export default function PatrolDashboard() {
       {unassignedPatrols.length > 0 && (
         <section>
           <header>
-            <strong>Unassigned Paths</strong>
-            <span>{unassignedPatrols.length}</span>
+            <span>
+              <strong>Unassigned Paths</strong> &nbsp;&nbsp;
+              {unassignedPatrols.length}
+            </span>
           </header>
           <ul>
             {unassignedPatrols.map((patrol) => (

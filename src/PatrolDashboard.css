@@ -26,7 +26,6 @@ body {
   border-bottom: 1px solid rgba(255, 255, 255, 0.25);
 }
 
-.patrol-dashboard header span,
 .patrol-dashboard p,
 .patrol-dashboard__details span {
   opacity: 0.72;
@@ -81,4 +80,16 @@ body {
 
 .patrol-dashboard button.danger {
   color: #ef4444;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  .action-link img {
+    width: 18px;
+    height: 18px;
+    display: block;
+  }
 }
