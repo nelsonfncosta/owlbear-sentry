@@ -1,6 +1,6 @@
 {
   "name": "Sentry",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "manifest_version": 1,
   "author": "@nelsonfncosta",
   "description": "Draw a patrol path and set tokens to automatically walk it back and forth.",
