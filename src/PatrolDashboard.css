@@ -1,0 +1,83 @@
+:root {
+  font:
+    14px/1.4 system-ui,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  color: #fff;
+}
+
+body {
+  margin: 0;
+  background: transparent;
+}
+
+.patrol-dashboard {
+  padding: 12px;
+  text-align: left;
+}
+
+.patrol-dashboard header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 28px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.patrol-dashboard header span,
+.patrol-dashboard p,
+.patrol-dashboard__details span {
+  opacity: 0.72;
+}
+
+.patrol-dashboard p {
+  margin: 12px 0 0;
+}
+
+.patrol-dashboard ul {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.patrol-dashboard li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+}
+
+.patrol-dashboard__details {
+  display: grid;
+  min-width: 0;
+}
+
+.patrol-dashboard__details strong,
+.patrol-dashboard__details span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.patrol-dashboard__details span {
+  font-size: 12px;
+}
+
+.patrol-dashboard button {
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.patrol-dashboard button.danger {
+  color: #ef4444;
+}

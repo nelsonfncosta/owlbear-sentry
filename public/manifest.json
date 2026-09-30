@@ -5,5 +5,12 @@
   "author": "@nelsonfncosta",
   "description": "Draw a patrol path and set tokens to automatically walk it back and forth.",
   "icon": "/icons/patrol.svg",
+  "action": {
+    "title": "Sentry Patrols",
+    "icon": "/icons/patrol.svg",
+    "popover": "/patrols.html",
+    "width": 320,
+    "height": 320
+  },
   "background_url": "/"
 }

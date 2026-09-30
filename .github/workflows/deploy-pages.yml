@@ -37,7 +37,7 @@ jobs:
 
       - name: Rewrite manifest for Pages subpath
         run: |
-          node -e "const fs = require('fs'); const path = 'dist/manifest.json'; const manifest = JSON.parse(fs.readFileSync(path, 'utf8')); const base = '/' + process.env.GITHUB_REPOSITORY.split('/')[1] + '/'; manifest.icon = base + 'icons/patrol.svg'; manifest.background_url = base; fs.writeFileSync(path, JSON.stringify(manifest, null, 2) + '\n');"
+          node -e "const fs = require('fs'); const path = 'dist/manifest.json'; const manifest = JSON.parse(fs.readFileSync(path, 'utf8')); const base = '/' + process.env.GITHUB_REPOSITORY.split('/')[1] + '/'; manifest.icon = base + 'icons/patrol.svg'; manifest.background_url = base; manifest.action.icon = base + 'icons/patrol.svg'; manifest.action.popover = base + 'patrols.html'; fs.writeFileSync(path, JSON.stringify(manifest, null, 2) + '\n');"
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

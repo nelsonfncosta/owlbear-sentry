@@ -32,6 +32,8 @@ Pushes to `main` deploy through
 - **Assigning a patrol** ([src/PatrolControl.jsx](./src/PatrolControl.jsx)): right-click a
   token, choose `Patrol`, and a popover lets you pick one of the drawn paths and a speed.
   This is stored in the token's own metadata (`pathId`, `speed`).
+- **Managing patrols** ([src/PatrolDashboard.jsx](./src/PatrolDashboard.jsx)): the Sentry
+  action lists every current patrol with quick pause, resume, and stop controls.
 - **Moving the token** ([src/extension/patrol.js](./src/extension/patrol.js)): see below.
 
 ### Patrol movement - a hybrid approach

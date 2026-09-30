@@ -21,6 +21,7 @@ export default defineConfig({
       input: {
         main: `${dirname}index.html`,
         patrolControl: `${dirname}patrol-control.html`,
+        patrols: `${dirname}patrols.html`,
       },
     },
   },

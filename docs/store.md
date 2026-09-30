@@ -24,6 +24,7 @@ Give tokens a route to patrol automatically in Owlbear Rodeo.
 - Closed paths make a token loop continuously.
 - Set a patrol speed per token.
 - Pause, resume, or stop patrols from the token's Patrol context control.
+- Review and control every active patrol from the Sentry action menu.
 - Tokens subtly turn to follow their path.
 - Patrol movement updates token position, so it works with vision and fog of war.
 
